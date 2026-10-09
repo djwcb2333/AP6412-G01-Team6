@@ -1,0 +1,18 @@
+# Godot generated files
+.godot/
+
+# .NET / C# build files
+bin/
+obj/
+
+# IDE files
+.vs/
+.vscode/
+.idea/
+
+# User-specific files
+*.user
+*.userprefs
+
+# macOS
+.DS_Store
