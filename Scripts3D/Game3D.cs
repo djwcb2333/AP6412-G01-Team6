@@ -1,9 +1,3 @@
-// TEACHING GUIDE: Game3D is OUR game coordinator; Node3D and PackedScene are GODOT.
-// GODOT API: _Ready, _PhysicsProcess, GD.Load, GetNode, Instantiate, AddChild.
-// OUR RULES: first spawn at 1.5 s, then every 2.5 s; survive for 60 s to win;
-// first four kills unlock Strikers for all subsequent spawns; score depends on enemy type.
-// WORLD UNITS: speeds are Godot 3D units per second, not pixels per second.
-
 using Godot;
 using System;
 
@@ -25,7 +19,7 @@ public partial class Game3D : Node3D
 
 	private Player3D _player = null!;
 
-	private float _spawnTimer;
+	private readonly EnemySpawnSchedule _spawnSchedule = new(SurvivalSeconds);
 
 	private float _remainingTime;
 
@@ -78,10 +72,6 @@ public partial class Game3D : Node3D
 			return;
 		}
 
-		float delta = Math.Min(
-			(float)deltaValue,
-			0.033f);
-
 		_remainingTime = Math.Max(
 			0f,
 			_remainingTime - (float)deltaValue);
@@ -92,14 +82,12 @@ public partial class Game3D : Node3D
 			return;
 		}
 
-		_spawnTimer -= delta;
+		int dueSpawns = _spawnSchedule.CountDueSpawns(
+			SurvivalSeconds - _remainingTime);
 
-		if (_spawnTimer <= 0f)
+		for (int i = 0; i < dueSpawns; i++)
 		{
 			SpawnEnemy();
-
-			// OUR spawning interval: one enemy every 2.5 seconds.
-			_spawnTimer = 2.5f;
 		}
 	}
 
@@ -113,8 +101,7 @@ public partial class Game3D : Node3D
 
 		_remainingTime = SurvivalSeconds;
 
-		// OUR opening delay: spawn first enemy 1.5 seconds after game start.
-		_spawnTimer = 1.5f;
+		_spawnSchedule.Reset();
 
 		_running = true;
 
@@ -125,7 +112,6 @@ public partial class Game3D : Node3D
 	private void SpawnEnemy()
 	{
 		PackedScene selectedScene =
-			// OUR progression: spawn Chasers while kills = 0..3; then Strikers.
 			_kills < 4
 				? _chaserScene
 				: _strikerScene;
@@ -149,7 +135,6 @@ public partial class Game3D : Node3D
 
 	private Vector3 RandomArenaEdgePosition()
 	{
-		// OUR arena spawn bounds (world units), slightly inside the walls.
 		const float MaxX = 8.5f;
 		const float MaxZ = 5.5f;
 

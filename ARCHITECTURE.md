@@ -2,7 +2,8 @@
 
 This is a **3D** Godot 4 C# project. `Node3D`, `CharacterBody3D`, `Camera3D`,
 `PackedScene`, input handling, collision functions, and the engine lifecycle are
-**Godot-provided APIs**. The six classes in `Scripts3D/` are **our own C# code**.
+**Godot-provided APIs**. The six gameplay classes and the plain C# spawning
+schedule in `Scripts3D/` are **our own C# code**.
 
 ## Main flow
 
@@ -12,7 +13,8 @@ Godot loads Scenes3D/Main3D.tscn
      -> load reusable enemy/bullet scenes via GD.Load() [Godot]
      -> connect C# gameplay signals; StartGame() [Our logic]
 Each Godot physics tick:
-  -> Game3D._PhysicsProcess()       -> spawn timer / enemy spawn [Our rules]
+  -> Game3D._PhysicsProcess()       -> survival countdown / due enemy spawns [Our rules]
+     -> EnemySpawnSchedule.CountDueSpawns() [Our difficulty; reads the same clock]
   -> Player3D._PhysicsProcess()     -> WASD, motion, mouse aim, request shot
   -> Enemy3D._PhysicsProcess()      -> select behaviour, move, contact attack
      -> ChaserEnemy3D.UpdateBehaviour() / StrikerEnemy3D.UpdateBehaviour()
@@ -24,6 +26,7 @@ Each Godot physics tick:
 | Our class | Responsibility | Godot base class |
 | --- | --- | --- |
 | Game3D | Game state, spawning, score, victory/defeat | Node3D |
+| EnemySpawnSchedule | Opening delay and timed spawn intervals | Plain C# |
 | Player3D | Movement, aim, fire cooldown, HP | CharacterBody3D |
 | Enemy3D | Shared enemy health, contact damage, signals | CharacterBody3D |
 | ChaserEnemy3D | Chasing movement and Chaser stats | Our Enemy3D |

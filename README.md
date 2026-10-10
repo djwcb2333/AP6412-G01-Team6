@@ -19,8 +19,8 @@ legacy assembly name is **not** the current gameplay stage or dimension.
 | Rule | Value | File |
 | --- | --- | --- |
 | Victory | Survive 60 seconds; losing all health earlier is defeat | `Game3D.cs` |
-| Initial enemy spawn | 1.5 s after start | `Game3D.cs` |
-| Subsequent spawns | Every 2.5 s | `Game3D.cs` |
+| Initial enemy spawn | 1.5 s after start | `EnemySpawnSchedule.cs` |
+| Subsequent spawns | 2.5 s gaps, then 1.75 s at 20 s, then 1.0 s at 40 s | `EnemySpawnSchedule.cs` |
 | Enemy progression | Chasers while kills < 4; Strikers from 4 onward | `Game3D.cs` |
 | Player max health | 100 HP | `Player3D.cs` |
 | Player movement | 7 world units/s | `Player3D.cs` |
@@ -57,3 +57,46 @@ those conflicting changes**; Git may require manual resolution. The
 existence of two pull requests alone does not necessarily create a conflict.
 
 For detailed call flow, signals, and collision layers, see `ARCHITECTURE.md`.
+
+## Survival Mode: enemy spawning and difficulty
+
+The difficulty schedule reads elapsed time from the existing 60-second countdown
+in `Game3D`. It does not own a second round timer or change victory, defeat,
+score, player controls, enemy stats, or UI. Kills still unlock Strikers after four
+kills, but do not end the round.
+
+Each spawn schedules the next one using the interval for its scheduled timestamp.
+Crossing 20 or 40 seconds does not force an immediate spawn or move an already
+scheduled spawn. If the player stays alive, there are 8 scheduled enemies in
+0-20 seconds, 11 in 20-40 seconds, and 20 in 40-60 seconds (39 total).
+Long physics steps catch up due spawns while the round is running. At 60 seconds,
+victory takes priority and no late spawns are created. Starting a new round resets
+the opening delay and difficulty.
+
+### Validation
+
+Requires the .NET 8 SDK or newer, plus the compatible Godot .NET editor for runtime
+tests. The console tests do not require a Godot editor or third-party test library:
+
+```powershell
+dotnet build NeonRiftStage1.csproj
+dotnet run --project Tests/SpawnScheduleTests/SpawnScheduleTests.csproj
+./Tests/RunGodotSmoke.ps1 -GodotPath "C:/path/to/Godot_mono_console.exe"
+```
+
+The Godot smoke tests run a temporary copy of the real scenes and C# scripts.
+They check generation, difficulty, enemy configuration, ten-kill continuation,
+victory, defeat, and restart. They do not test keyboard/mouse input, rendering,
+or gameplay balance. In the editor, also play a full round with WASD and the left
+mouse button. Timer and results currently appear through gameplay state and the
+Output panel; this version does not add a HUD.
+
+### Team integration
+
+This feature builds on the teammate's `Add Survival Mode v1` commit (`af5bb54`).
+Keep the teammate's `_remainingTime`, 60-second victory check and early return,
+`OnEnemyDestroyed`, and victory/defeat handlers when merging. Keep the schedule
+reset in `StartGame` and the `CountDueSpawns` call after the victory check. Avoid
+restoring the original ten-kill victory or the separate capped spawn timer.
+The `Compile Remove` in the project file keeps validation sources out of the game
+assembly; the SDK version remains `Godot.NET.Sdk/4.7.1`.
