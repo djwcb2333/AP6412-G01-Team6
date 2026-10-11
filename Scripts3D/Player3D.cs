@@ -1,7 +1,7 @@
 // TEACHING GUIDE: Player3D is OUR player model; CharacterBody3D is GODOT.
 // GODOT API: [Signal], _Input, _PhysicsProcess, Input.GetVector, MoveAndSlide,
 // Camera3D.ProjectRayOrigin/ProjectRayNormal, LookAt, EmitSignal.
-// OUR RULES: 100 health, 7 world units/second, up to 5 shots/second,
+// OUR RULES: three hits, 7 world units/second, up to 5 shots/second,
 // 0.6-second damage immunity after being hit; WASD movement and mouse aiming/shooting.
 
 using Godot;
@@ -18,8 +18,8 @@ public partial class Player3D : CharacterBody3D
 	[Signal]
 	public delegate void DiedEventHandler();
 
-	// OUR PLAYER STATS: max HP, movement speed (units/s), firing rate (shots/s).
-	private const float MaxHealth = 100f;
+	// Each valid hit removes one heart, regardless of the enemy's damage value.
+	public const int MaxHealth = 3;
 	private const float MoveSpeed = 7f;
 	private const float FireRate = 5f;
 
@@ -33,7 +33,7 @@ public partial class Player3D : CharacterBody3D
 
 	public bool Active { get; set; } = true;
 
-	public float Health { get; private set; } = MaxHealth;
+	public int Health { get; private set; } = MaxHealth;
 
 	// GODOT input callback: remember screen position for mouse-based aiming.
 	public override void _Input(InputEvent @event)
@@ -165,19 +165,18 @@ public partial class Player3D : CharacterBody3D
 
 	public void TakeDamage(float damage)
 	{
-		if (!Active || _invulnerable > 0f)
+		if (!Active || _invulnerable > 0f
+			|| !float.IsFinite(damage) || damage <= 0f)
 		{
 			return;
 		}
 
-		Health = Math.Max(
-			0f,
-			Health - damage);
+		Health--;
 
 		// OUR rule: ignore further damage for 0.6 s after a valid hit.
 		_invulnerable = 0.6f;
 
-		if (Health <= 0f)
+		if (Health == 0)
 		{
 			Active = false;
 			Visible = false;
@@ -185,6 +184,17 @@ public partial class Player3D : CharacterBody3D
 			EmitSignal(
 				SignalName.Died);
 		}
+	}
+
+	public bool Heal(int hearts)
+	{
+		if (!Active || hearts <= 0 || Health >= MaxHealth)
+		{
+			return false;
+		}
+
+		Health = Math.Min(MaxHealth, Health + hearts);
+		return true;
 	}
 
 	public void ResetPlayer(Vector3 position)

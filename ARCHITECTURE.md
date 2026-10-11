@@ -2,7 +2,7 @@
 
 This is a **3D** Godot 4 C# project. `Node3D`, `CharacterBody3D`, `Camera3D`,
 `PackedScene`, input handling, collision functions, and the engine lifecycle are
-**Godot-provided APIs**. The six gameplay classes and the plain C# spawning
+**Godot-provided APIs**. The gameplay classes and the plain C# spawning
 schedule in `Scripts3D/` are **our own C# code**.
 
 ## Main flow
@@ -14,7 +14,7 @@ Godot loads Scenes3D/Main3D.tscn
      -> connect C# gameplay signals; StartGame() [Our logic]
 Each Godot physics tick:
   -> Game3D._PhysicsProcess()       -> survival countdown / due enemy spawns [Our rules]
-     -> EnemySpawnSchedule.CountDueSpawns() [Our difficulty; reads the same clock]
+     -> EnemySpawnSchedule.CountDueSpawns() [Our difficulty; reads actual elapsed time]
   -> Player3D._PhysicsProcess()     -> WASD, motion, mouse aim, request shot
   -> Enemy3D._PhysicsProcess()      -> select behaviour, move, contact attack
      -> ChaserEnemy3D.UpdateBehaviour() / StrikerEnemy3D.UpdateBehaviour()
@@ -28,6 +28,7 @@ Each Godot physics tick:
 | Game3D | Game state, spawning, score, victory/defeat | Node3D |
 | EnemySpawnSchedule | Opening delay and timed spawn intervals | Plain C# |
 | Player3D | Movement, aim, fire cooldown, HP | CharacterBody3D |
+| SurvivalHud | Displays round state and restart button | CanvasLayer |
 | Enemy3D | Shared enemy health, contact damage, signals | CharacterBody3D |
 | ChaserEnemy3D | Chasing movement and Chaser stats | Our Enemy3D |
 | StrikerEnemy3D | Ranged-attack AI and Striker stats | Our Enemy3D |
@@ -37,11 +38,14 @@ Each Godot physics tick:
 - `Player3D.Died` -> `Game3D.EndWithDefeat()`
 - `Enemy3D.ShotRequested` -> `Game3D.SpawnEnemyBullet()`
 - `Enemy3D.Destroyed` -> `Game3D.OnEnemyDestroyed()`
+- `SurvivalHud.RestartRequested` -> `Game3D.StartGame()`
 
 Godot's `[Signal]` and `EmitSignal()` mechanism is engine-provided; **the events,
-their meaning, and the handlers are designed in our code**. No HUD or dash
-mechanics are implemented in this Week 8 3D demo. Status and outcomes are
-printed to Godot's output panel.
+their meaning, and the handlers are designed in our code**. `Player3D` owns
+the three-heart state and healing cap; `Game3D` owns time, kill rewards, and
+round outcomes; `SurvivalHud` only displays state and requests a restart.
+The countdown can be shortened by a kill reward, while the spawning schedule
+continues to use actual elapsed play time.
 
 ## Collision configuration
 

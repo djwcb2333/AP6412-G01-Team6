@@ -8,7 +8,8 @@ Godot APIs, and GitHub collaboration. All source-code comments are in English.
 1. Open this directory as a project in a compatible Godot 4 .NET editor.
 2. Build the C# project in Godot, then run `Scenes3D/Main3D.tscn`.
 3. Use **W/A/S/D** to move; **move the mouse** to aim; hold **left mouse button** to shoot.
-4. Observe kills, score, victory, and defeat messages in the **Godot Output panel**.
+4. Watch the countdown, three-heart health, kills, and score on screen.
+   The result panel has a **RESTART** button.
 
 The project targets `Godot.NET.Sdk/4.7.1` and `net8.0` as in the supplied
 project. The assembly is named `NeonRiftStage1` for compatibility; this
@@ -18,11 +19,13 @@ legacy assembly name is **not** the current gameplay stage or dimension.
 
 | Rule | Value | File |
 | --- | --- | --- |
-| Victory | Survive 60 seconds; losing all health earlier is defeat | `Game3D.cs` |
+| Victory | Reach zero on the initial 60-second countdown; losing all hearts first is defeat | `Game3D.cs` |
 | Initial enemy spawn | 1.5 s after start | `EnemySpawnSchedule.cs` |
 | Subsequent spawns | 2.5 s gaps, then 1.75 s at 20 s, then 1.0 s at 40 s | `EnemySpawnSchedule.cs` |
 | Enemy progression | Chasers while kills < 4; Strikers from 4 onward | `Game3D.cs` |
-| Player max health | 100 HP | `Player3D.cs` |
+| Player health | 3 hearts; each valid hit costs one heart | `Player3D.cs` |
+| Kill reward | 10% chance to remove 3 s; 20% chance to heal 1 heart; 70% no reward | `Game3D.cs`, `Player3D.cs` |
+| UI | Countdown, health, kills/score, victory/defeat, restart | `SurvivalHud.cs`, `SurvivalHud.tscn` |
 | Player movement | 7 world units/s | `Player3D.cs` |
 | Player firing rate | 5 shots/s (0.2 s apart) | `Player3D.cs` |
 | Player damage immunity | 0.6 s after taking damage | `Player3D.cs` |
@@ -86,10 +89,15 @@ dotnet run --project Tests/SpawnScheduleTests/SpawnScheduleTests.csproj
 
 The Godot smoke tests run a temporary copy of the real scenes and C# scripts.
 They check generation, difficulty, enemy configuration, ten-kill continuation,
-victory, defeat, and restart. They do not test keyboard/mouse input, rendering,
-or gameplay balance. In the editor, also play a full round with WASD and the left
-mouse button. Timer and results currently appear through gameplay state and the
-Output panel; this version does not add a HUD.
+three-hit health, rewards, victory, defeat, UI state, and restart. They do not
+test keyboard/mouse input, rendering, or gameplay balance. In the editor,
+also play a full round with WASD and the left mouse button.
+
+The kill time reward changes only the remaining countdown. Enemy difficulty
+uses actual elapsed play time, so the reward cannot skip spawn stages. Healing
+does nothing at full health or after the round ends. A time reward that brings
+the timer to zero wins immediately. After either result, movement, shooting,
+spawning, and further rewards stop until restart.
 
 ### Team integration
 

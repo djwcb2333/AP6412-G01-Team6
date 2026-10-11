@@ -1,0 +1,103 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://Scripts3D/SurvivalHud.cs" id="1_hud"]
+
+[node name="SurvivalHud" type="CanvasLayer"]
+script = ExtResource("1_hud")
+
+[node name="StatusPanel" type="PanelContainer" parent="."]
+offset_left = 20.0
+offset_top = 20.0
+offset_right = 1110.0
+offset_bottom = 82.0
+mouse_filter = 2
+
+[node name="StatusMargin" type="MarginContainer" parent="StatusPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 12
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 12
+theme_override_constants/margin_bottom = 8
+
+[node name="StatusRow" type="HBoxContainer" parent="StatusPanel/StatusMargin"]
+layout_mode = 2
+theme_override_constants/separation = 24
+
+[node name="TimeLabel" type="Label" parent="StatusPanel/StatusMargin/StatusRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "TIME  60s"
+
+[node name="HealthLabel" type="Label" parent="StatusPanel/StatusMargin/StatusRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "HEALTH  3/3  ♥♥♥"
+
+[node name="ScoreLabel" type="Label" parent="StatusPanel/StatusMargin/StatusRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "KILLS  0    SCORE  0"
+
+[node name="RewardLabel" type="Label" parent="."]
+visible = false
+offset_left = 28.0
+offset_top = 94.0
+offset_right = 390.0
+offset_bottom = 135.0
+theme_override_colors/font_color = Color(0.5, 1, 0.65, 1)
+theme_override_font_sizes/font_size = 24
+text = "+1 HEALTH"
+
+[node name="RewardTimer" type="Timer" parent="."]
+one_shot = true
+
+[node name="ResultOverlay" type="ColorRect" parent="."]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.01, 0.015, 0.04, 0.82)
+
+[node name="Center" type="CenterContainer" parent="ResultOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="ResultPanel" type="PanelContainer" parent="ResultOverlay/Center"]
+layout_mode = 2
+custom_minimum_size = Vector2(500, 280)
+
+[node name="ResultMargin" type="MarginContainer" parent="ResultOverlay/Center/ResultPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 30
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 30
+
+[node name="ResultColumn" type="VBoxContainer" parent="ResultOverlay/Center/ResultPanel/ResultMargin"]
+layout_mode = 2
+theme_override_constants/separation = 20
+alignment = 1
+
+[node name="ResultTitle" type="Label" parent="ResultOverlay/Center/ResultPanel/ResultMargin/ResultColumn"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 52
+text = "VICTORY"
+horizontal_alignment = 1
+
+[node name="ResultDetails" type="Label" parent="ResultOverlay/Center/ResultPanel/ResultMargin/ResultColumn"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Final score: 0"
+horizontal_alignment = 1
+autowrap_mode = 2
+
+[node name="RestartButton" type="Button" parent="ResultOverlay/Center/ResultPanel/ResultMargin/ResultColumn"]
+custom_minimum_size = Vector2(0, 48)
+layout_mode = 2
+text = "RESTART"

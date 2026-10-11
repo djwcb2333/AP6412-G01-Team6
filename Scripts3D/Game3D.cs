@@ -3,11 +3,13 @@ using System;
 
 public partial class Game3D : Node3D
 {
-	// OUR victory condition: the player must survive for 60 seconds.
+	// The round starts at 60 seconds; surviving until the countdown reaches zero wins.
 	private const float SurvivalSeconds = 60f;
+	private const float TimeRewardSeconds = 3f;
 
 	private readonly RandomNumberGenerator _rng =
 		new();
+	private readonly RandomNumberGenerator _rewardRng = new();
 
 	private PackedScene _chaserScene = null!;
 
@@ -18,10 +20,12 @@ public partial class Game3D : Node3D
 	private Node3D _entities = null!;
 
 	private Player3D _player = null!;
+	private SurvivalHud _hud = null!;
 
 	private readonly EnemySpawnSchedule _spawnSchedule = new(SurvivalSeconds);
 
 	private float _remainingTime;
+	private double _elapsedTime;
 
 	private int _kills;
 
@@ -35,6 +39,7 @@ public partial class Game3D : Node3D
 		Engine.TimeScale = 1.0;
 
 		_rng.Randomize();
+		_rewardRng.Randomize();
 
 		_chaserScene =
 			GD.Load<PackedScene>(
@@ -53,6 +58,7 @@ public partial class Game3D : Node3D
 
 		_player =
 			GetNode<Player3D>("Player");
+		_hud = GetNode<SurvivalHud>("SurvivalHud");
 
 		// OUR signal-based design: actors request actions; Game3D owns spawning.
 		_player.ShotRequested +=
@@ -60,6 +66,7 @@ public partial class Game3D : Node3D
 
 		_player.Died +=
 			EndWithDefeat;
+		_hud.RestartRequested += StartGame;
 
 		StartGame();
 	}
@@ -72,9 +79,11 @@ public partial class Game3D : Node3D
 			return;
 		}
 
+		_elapsedTime += deltaValue;
 		_remainingTime = Math.Max(
 			0f,
 			_remainingTime - (float)deltaValue);
+		UpdateHud();
 
 		if (_remainingTime <= 0f)
 		{
@@ -82,8 +91,8 @@ public partial class Game3D : Node3D
 			return;
 		}
 
-		int dueSpawns = _spawnSchedule.CountDueSpawns(
-			SurvivalSeconds - _remainingTime);
+		// Difficulty follows real elapsed time, even when a kill shortens the countdown.
+		int dueSpawns = _spawnSchedule.CountDueSpawns(_elapsedTime);
 
 		for (int i = 0; i < dueSpawns; i++)
 		{
@@ -100,6 +109,7 @@ public partial class Game3D : Node3D
 		_score = 0;
 
 		_remainingTime = SurvivalSeconds;
+		_elapsedTime = 0.0;
 
 		_spawnSchedule.Reset();
 
@@ -107,6 +117,8 @@ public partial class Game3D : Node3D
 
 		_player.ResetPlayer(
 			new Vector3(0f, 0.5f, 0f));
+		_hud.HideResult();
+		UpdateHud();
 	}
 
 	private void SpawnEnemy()
@@ -175,6 +187,8 @@ public partial class Game3D : Node3D
 		Vector3 position,
 		Vector3 direction)
 	{
+		if (!_running) return;
+
 		// OUR PLAYER BULLET: friendly, 14 units/s, 24 HP damage.
 		SpawnBullet(
 			position,
@@ -188,6 +202,8 @@ public partial class Game3D : Node3D
 		Vector3 position,
 		Vector3 direction)
 	{
+		if (!_running) return;
+
 		// OUR ENEMY BULLET: hostile, 8 units/s, 11 HP damage.
 		SpawnBullet(
 			position,
@@ -230,10 +246,41 @@ public partial class Game3D : Node3D
 		_kills++;
 
 		_score += points;
+		ApplyKillReward(_rewardRng.RandiRange(0, 99));
+		UpdateHud();
 
 		GD.Print(
 			$"Kills: {_kills}"
 			+ $" | Score: {_score}");
+	}
+
+	// One roll per kill: 10% time bonus, 20% healing, 70% no reward.
+	private void ApplyKillReward(int roll)
+	{
+		if (!_running)
+		{
+			return;
+		}
+
+		if (roll < 10)
+		{
+			_remainingTime = Math.Max(0f, _remainingTime - TimeRewardSeconds);
+			_hud.ShowReward("-3 SECONDS");
+			if (_remainingTime <= 0f)
+			{
+				EndWithVictory();
+			}
+		}
+		else if (roll < 30 && _player.Heal(1))
+		{
+			_hud.ShowReward("+1 HEALTH");
+		}
+	}
+
+	private void UpdateHud()
+	{
+		_hud.UpdateStats(_remainingTime, _player.Health,
+			Player3D.MaxHealth, _kills, _score);
 	}
 
 	private void EndWithVictory()
@@ -241,8 +288,10 @@ public partial class Game3D : Node3D
 		_running = false;
 
 		_player.Active = false;
+		UpdateHud();
+		_hud.ShowResult(true, _score);
 
-		GD.Print("VICTORY: Survived 60 seconds!");
+		GD.Print("VICTORY: Countdown reached zero!");
 	}
 
 	private void EndWithDefeat()
@@ -253,6 +302,9 @@ public partial class Game3D : Node3D
 		}
 
 		_running = false;
+		_player.Active = false;
+		UpdateHud();
+		_hud.ShowResult(false, _score);
 
 		GD.Print("GAME OVER!!!!");
 	}
@@ -262,6 +314,12 @@ public partial class Game3D : Node3D
 		foreach (Node child
 			in _entities.GetChildren())
 		{
+			child.ProcessMode = ProcessModeEnum.Disabled;
+			if (child is PhysicsBody3D body)
+			{
+				body.CollisionLayer = 0;
+				body.CollisionMask = 0;
+			}
 			child.QueueFree();
 		}
 	}

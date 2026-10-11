@@ -15,6 +15,7 @@ public partial class SurvivalSmokeTest : Node
 		try
 		{
 			await CheckFullRound();
+			await CheckRewardsAndUi();
 			await CheckDefeatAndRestart();
 			GD.Print($"PASS: {_checks} Godot integration checks");
 			GetTree().Quit(0);
@@ -68,6 +69,8 @@ public partial class SurvivalSmokeTest : Node
 			"Ten actual kills and score recorded");
 		Check(Field<bool>(game, "_running") && player.Active,
 			"Ten kills do not end the survival round");
+		// Isolate the teammate's spawn schedule from random kill time rewards.
+		SetField(game, "_remainingTime", 58.5f);
 
 		game._PhysicsProcess(2.5);
 		Check(EnemyCount(entities) == 1, "Spawning continues after ten kills");
@@ -96,16 +99,28 @@ public partial class SurvivalSmokeTest : Node
 		Player3D player = game.GetNode<Player3D>("Player");
 		game._PhysicsProcess(21.5);
 		Check(EnemyCount(entities) == 9, "Low-frequency update catches up due enemies");
+		player.TakeDamage(0f);
+		Check(player.Health == 3, "Zero damage does not consume a heart");
 		player.TakeDamage(10000f);
-		Check(!Field<bool>(game, "_running") && !player.Active && player.Health == 0f,
-			"Actual death signal ends round early");
+		player.TakeDamage(10000f);
+		Check(player.Health == 2, "One valid hit removes one heart with immunity");
+		SetPlayerField(player, "_invulnerable", 0f);
+		player.TakeDamage(10000f);
+		Check(player.Health == 1 && Field<bool>(game, "_running"),
+			"Second separated hit leaves one heart");
+		SetPlayerField(player, "_invulnerable", 0f);
+		player.TakeDamage(10000f);
+		Check(!Field<bool>(game, "_running") && !player.Active && player.Health == 0,
+			"Third separated hit ends round early");
+		Check(game.GetNode<ColorRect>("SurvivalHud/ResultOverlay").Visible,
+			"Defeat panel appears");
 		int defeatCount = EnemyCount(entities);
 		game._PhysicsProcess(60.0);
 		Check(EnemyCount(entities) == defeatCount, "No enemies after defeat");
 
 		Call(game, "StartGame");
 		await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
-		Check(EnemyCount(entities) == 0 && player.Health == 100f && player.Active,
+		Check(EnemyCount(entities) == 0 && player.Health == 3 && player.Active,
 			"Restart clears enemies and resets player");
 		Check(Field<float>(game, "_remainingTime") == 60f && Field<int>(game, "_kills") == 0,
 			"Restart resets teammate timer and score progression");
@@ -125,14 +140,60 @@ public partial class SurvivalSmokeTest : Node
 		await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
 	}
 
+	private async Task CheckRewardsAndUi()
+	{
+		Game3D game = await CreateGame();
+		Player3D player = game.GetNode<Player3D>("Player");
+		Label time = game.GetNode<Label>(
+			"SurvivalHud/StatusPanel/StatusMargin/StatusRow/TimeLabel");
+		Check(time.Text.Contains("60"), "Countdown is visible at round start");
+
+		player.TakeDamage(12f);
+		Check(player.Health == 2, "Any positive hit removes one heart");
+		Call(game, "ApplyKillReward", 10);
+		Check(player.Health == 3 && !player.Heal(1),
+			"Heal reward restores one heart and respects the cap");
+		float before = Field<float>(game, "_remainingTime");
+		Call(game, "ApplyKillReward", 0);
+		Check(Field<float>(game, "_remainingTime") == before - 3f
+			&& Field<double>(game, "_elapsedTime") == 0.0,
+			"Time reward shortens countdown without speeding enemy progression");
+		Call(game, "ApplyKillReward", 99);
+		Check(Field<float>(game, "_remainingTime") == before - 3f,
+			"No-reward roll leaves countdown unchanged");
+
+		SetField(game, "_remainingTime", 2f);
+		Call(game, "ApplyKillReward", 0);
+		Check(!Field<bool>(game, "_running") && !player.Active
+			&& Field<float>(game, "_remainingTime") == 0f,
+			"Time reward at the boundary ends in victory once");
+		Check(game.GetNode<Label>(
+			"SurvivalHud/ResultOverlay/Center/ResultPanel/ResultMargin/ResultColumn/ResultTitle")
+			.Text == "VICTORY", "Victory panel appears");
+		game.GetNode<Button>(
+			"SurvivalHud/ResultOverlay/Center/ResultPanel/ResultMargin/ResultColumn/RestartButton")
+			.EmitSignal(Button.SignalName.Pressed);
+		Check(!game.GetNode<ColorRect>("SurvivalHud/ResultOverlay").Visible
+			&& player.Health == 3 && Field<float>(game, "_remainingTime") == 60f,
+			"UI restart button resets HUD, health, and timer");
+		game.QueueFree();
+		await ToSignal(GetTree(), SceneTree.SignalName.ProcessFrame);
+	}
+
 	private static int EnemyCount(Node3D entities) => entities.GetChildren().OfType<Enemy3D>()
 		.Count(e => !e.IsQueuedForDeletion());
 
 	private static T Field<T>(Game3D game, string name) =>
 		(T)typeof(Game3D).GetField(name, PrivateInstance)!.GetValue(game)!;
 
-	private static void Call(Game3D game, string name) =>
-		typeof(Game3D).GetMethod(name, PrivateInstance)!.Invoke(game, null);
+	private static void Call(Game3D game, string name, params object[] args) =>
+		typeof(Game3D).GetMethod(name, PrivateInstance)!.Invoke(game, args);
+
+	private static void SetField<T>(Game3D game, string name, T value) =>
+		typeof(Game3D).GetField(name, PrivateInstance)!.SetValue(game, value);
+
+	private static void SetPlayerField<T>(Player3D player, string name, T value) =>
+		typeof(Player3D).GetField(name, PrivateInstance)!.SetValue(player, value);
 
 	private void Check(bool condition, string message)
 	{
